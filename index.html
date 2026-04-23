@@ -637,8 +637,125 @@ function renderContent(){
   }
 }
 
-renderBrandBtns();
-renderContent();
+// ── SUPABASE CONFIG ──────────────────────────────────────────────
+const SUPA_URL = 'https://czalskmvkmdqcatztzvk.supabase.co';
+const SUPA_KEY = 'sb_publishable_8TSk5DbTW0lVKPHwqOIDOA_Oj_ulqa5';
+
+async function fetchFromSupabase() {
+  const headers = { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` };
+  const [agrupRes, aranRes, cuotaRes, cambiosRes] = await Promise.all([
+    fetch(`${SUPA_URL}/rest/v1/agrupadores?select=*&activo=eq.true&order=id`, {headers}),
+    fetch(`${SUPA_URL}/rest/v1/aranceles?select=*&order=agrupador_id,medio,tipo,orden`, {headers}),
+    fetch(`${SUPA_URL}/rest/v1/cuotas?select=*&order=agrupador_id,medio,orden`, {headers}),
+    fetch(`${SUPA_URL}/rest/v1/cambios?select=*&visto=eq.false&order=detectado_at.desc&limit=10`, {headers}),
+  ]);
+  return {
+    agrupadores: await agrupRes.json(),
+    aranceles:   await aranRes.json(),
+    cuotas:      await cuotaRes.json(),
+    cambios:     await cambiosRes.json(),
+  };
+}
+
+function buildDataFromSupabase(raw) {
+  // Reconstruct brands array
+  const brandOrder = [6,0,1,2,3,4,5,7];
+  const brandMap = {};
+  raw.agrupadores.forEach(a => { brandMap[a.id] = a; });
+  brands.length = 0;
+  brandOrder.forEach(id => {
+    if (brandMap[id]) brands.push({
+      id: brandMap[id].id,
+      name: brandMap[id].nombre,
+      color: brandMap[id].color,
+      nota: brandMap[id].nota || ''
+    });
+  });
+
+  // Reconstruct D object
+  Object.keys(D).forEach(k => delete D[k]);
+  brands.forEach(b => {
+    D[b.id] = { qr:{}, link:{}, pos:{} };
+    ['qr','link','pos'].forEach(m => {
+      const rows = raw.aranceles.filter(r => r.agrupador_id === b.id && r.medio === m);
+      D[b.id][m].saldo   = rows.filter(r=>r.tipo==='saldo'  ).map(r=>({plazo:r.plazo,val:r.valor}));
+      D[b.id][m].debito  = rows.filter(r=>r.tipo==='debito' ).map(r=>({plazo:r.plazo,val:r.valor}));
+      D[b.id][m].credito = rows.filter(r=>r.tipo==='credito').map(r=>({plazo:r.plazo,val:r.valor}));
+      D[b.id][m].cuotas  = raw.cuotas
+        .filter(c => c.agrupador_id === b.id && c.medio === m)
+        .map(c => ({plan:c.plan,tasa:c.tasa,acred:c.acred,msi:c.msi,iva:c.iva,tna:c.tna||false}));
+    });
+  });
+}
+
+function showAlertas(cambios) {
+  if (!cambios || cambios.length === 0) return;
+  // Deduplicate by agrupador + campo
+  const seen = new Set();
+  const uniq = cambios.filter(c => {
+    const k = `${c.agrupador_id}-${c.campo}`;
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+
+  // Build alert bar dynamically
+  let alertBar = document.getElementById('alertBar');
+  if (!alertBar) {
+    alertBar = document.createElement('div');
+    alertBar.id = 'alertBar';
+    alertBar.style.cssText = 'display:none;align-items:flex-start;gap:12px;padding:.75rem 2rem;background:rgba(251,191,36,.07);border-bottom:1px solid rgba(251,191,36,.18);';
+    document.querySelector('.main').before(alertBar);
+  }
+
+  const brandMap = {};
+  brands.forEach(b => { brandMap[b.id] = b.name; });
+
+  alertBar.innerHTML = `
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:5px">⚠ Cambios detectados automáticamente</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:3px">
+        ${uniq.map(c => {
+          const fecha = new Date(c.detectado_at).toLocaleDateString('es-AR',{day:'2-digit',month:'short'});
+          return `<li style="font-family:var(--font-m);font-size:11px;color:var(--text-2)">
+            · <span style="color:var(--amber)">${brandMap[c.agrupador_id]||'Agrupador'}</span>
+            — ${c.campo}: ${c.valor_anterior} → ${c.valor_nuevo}
+            <em style="color:var(--text-3)">(${fecha})</em>
+          </li>`;
+        }).join('')}
+      </ul>
+    </div>
+    <button onclick="this.parentElement.style.display='none'" style="font-family:var(--font-m);font-size:11px;color:var(--text-3);background:none;border:none;cursor:pointer;flex-shrink:0">Cerrar ✕</button>`;
+  alertBar.style.display = 'flex';
+}
+
+// ── INIT CON SUPABASE ─────────────────────────────────────────────
+async function init() {
+  // Show loading state
+  document.getElementById('content').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;min-height:200px;color:var(--text-3);font-family:var(--font-m);font-size:12px;gap:10px">
+      <span style="animation:spin 1s linear infinite;display:inline-block">◌</span> Cargando datos...
+    </div>`;
+
+  try {
+    const raw = await fetchFromSupabase();
+    buildDataFromSupabase(raw);
+    renderBrandBtns();
+    renderContent();
+    showAlertas(raw.cambios);
+  } catch (err) {
+    console.error('Error cargando Supabase:', err);
+    // Fallback: usar datos hardcodeados
+    console.warn('Usando datos locales como fallback');
+    renderBrandBtns();
+    renderContent();
+  }
+}
+
+const style = document.createElement('style');
+style.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
+
+init();
 </script>
 </body>
 </html>
