@@ -184,7 +184,7 @@ const brands=[
   {id:6,name:'Bezza Pay',     color:'#D946EF',nota:'Sin IVA. Cuotas con Cordobesa: precio único (arancel + tasa). Aplica en todos los medios.'},
   {id:0,name:'Mercado Pago',  color:'#009EE3',nota:'Valores para Córdoba. Sin IVA.'},
   {id:1,name:'Ualá Bis',      color:'#7B5EA7',nota:'Valores +IVA. Acreditación inmediata.'},
-  {id:2,name:'Getnet',        color:'#E63030',nota:'Aranceles +IVA. Cuotas expresadas como TNA +IVA.'},
+  {id:2,name:'Getnet',        color:'#E63030',nota:'Aranceles +IVA. Débito hasta 1%, crédito hasta 2%. Tarjetas VISA/Mastercard internacionales: adicionar 0.70%. Cuotas expresadas como TNA +IVA.'},
   {id:3,name:'NX Toque',      color:'#F97316',nota:'Valores +IVA. Plan Z: cuotas en resumen de cuenta Naranja X.'},
   {id:4,name:'Nave',          color:'#F7941D',nota:'Valores +IVA.'},
   {id:5,name:'+Pagos Nación', color:'#4a9eff',nota:'Sin IVA.'},
@@ -264,8 +264,8 @@ const D={
   2:{ // GETNET
     qr:{
       saldo:[{plazo:'QR saldo en cuenta',val:0.80}],
-      debito:[{plazo:'Inmediato',val:0.80}],
-      credito:[{plazo:'8 días',val:2.00},{plazo:'Inmediato (+0.53%/día)',val:null}],
+      debito:[{plazo:'Inmediato · hasta 1%',val:0.80}],
+      credito:[{plazo:'8 días · hasta 2%',val:2.00},{plazo:'Inmediato (+0.53%/día)',val:null}],
       cuotas:[
         {plan:'2–6 cuotas', tasa:78,acred:'—',msi:false,iva:true,tna:true},
         {plan:'7–12 cuotas',tasa:83,acred:'—',msi:false,iva:true,tna:true},
@@ -274,8 +274,8 @@ const D={
       ],
     },
     link:{
-      debito:[{plazo:'1 día',val:1.00}],
-      credito:[{plazo:'8 días',val:2.00},{plazo:'Inmediato (+0.53%/día)',val:null}],
+      debito:[{plazo:'1 día · hasta 1%',val:1.00}],
+      credito:[{plazo:'8 días · hasta 2%',val:2.00},{plazo:'Inmediato (+0.53%/día)',val:null}],
       cuotas:[
         {plan:'2–6 cuotas', tasa:78,acred:'—',msi:false,iva:true,tna:true},
         {plan:'7–12 cuotas',tasa:83,acred:'—',msi:false,iva:true,tna:true},
@@ -284,8 +284,8 @@ const D={
       ],
     },
     pos:{
-      debito:[{plazo:'1 día',val:1.00}],
-      credito:[{plazo:'8 días',val:2.00},{plazo:'Inmediato (+0.53%/día)',val:null}],
+      debito:[{plazo:'1 día · hasta 1%',val:1.00}],
+      credito:[{plazo:'8 días · hasta 2%',val:2.00},{plazo:'Inmediato (+0.53%/día)',val:null}],
       cuotas:[
         {plan:'2–6 cuotas', tasa:78,acred:'—',msi:false,iva:true,tna:true},
         {plan:'7–12 cuotas',tasa:83,acred:'—',msi:false,iva:true,tna:true},
