@@ -353,11 +353,21 @@ select.calc-input{cursor:pointer;}
     <!-- COMPARATIVA ENTRE 2 -->
     <div class="cmp-calc-wrap" id="cmpCalcWrap">
       <div class="cmp-calc-title">Comparativa entre 2 agrupadores</div>
-      <div style="display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap;">
-        <select class="calc-input" id="cmpCalcA" style="flex:1;min-width:140px"></select>
-        <select class="calc-input" id="cmpCalcB" style="flex:1;min-width:140px"></select>
-        <button class="calc-btn" onclick="calcularComparativa()">Comparar →</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">
+        <!-- Agrupador A -->
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);">Agrupador A</label>
+          <select class="calc-input" id="cmpCalcA" onchange="updateCmpPlazos('A')"></select>
+          <select class="calc-input" id="cmpPlazoA" style="display:none"></select>
+        </div>
+        <!-- Agrupador B -->
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);">Agrupador B</label>
+          <select class="calc-input" id="cmpCalcB" onchange="updateCmpPlazos('B')"></select>
+          <select class="calc-input" id="cmpPlazoB" style="display:none"></select>
+        </div>
       </div>
+      <button class="calc-btn" onclick="calcularComparativa()" style="width:100%;margin-bottom:1rem;">Comparar →</button>
       <div class="cmp-calc-grid" id="cmpCalcGrid"></div>
     </div>
   </div>
@@ -720,6 +730,8 @@ function calcular(){
     </div>`).join('');
   document.getElementById('calcResults').classList.add('visible');
   document.getElementById('cmpCalcWrap').classList.add('visible');
+  updateCmpPlazos('A');
+  updateCmpPlazos('B');
 }
 
 function initCalcSelects(){
@@ -727,40 +739,99 @@ function initCalcSelects(){
   document.getElementById('cmpCalcA').innerHTML=opts;
   document.getElementById('cmpCalcB').innerHTML=opts;
   document.getElementById('cmpCalcB').value='0';
+  updateCmpPlazos('A');
+  updateCmpPlazos('B');
+}
+
+function getCmpPlazos(bid, medio, tipo){
+  const d = D[bid] && D[bid][medio];
+  if(!d) return [];
+  let rows = [];
+  if(tipo==='saldo_qr') rows = d.saldo||[];
+  else if(tipo.startsWith('debito')) rows = d.debito||[];
+  else rows = d.credito||[];
+  return rows.filter(r=>r.val!==null);
+}
+
+function updateCmpPlazos(slot){
+  const bid = parseInt(document.getElementById(`cmpCalc${slot}`).value);
+  const medio = document.getElementById('calcMedio').value || 'qr';
+  const tipo = document.getElementById('calcTipo').value || 'debito_qr';
+  const sel = document.getElementById(`cmpPlazo${slot}`);
+  const plazos = getCmpPlazos(bid, medio, tipo);
+  if(plazos.length <= 1){
+    sel.style.display = 'none';
+    return;
+  }
+  sel.innerHTML = plazos.map(r=>`<option value="${r.val}">${r.plazo} · ${r.val.toFixed(2)}%</option>`).join('');
+  sel.style.display = 'block';
 }
 
 function calcularComparativa(){
-  const monto=parseFloat(document.getElementById('calcMonto').value)||50000;
-  const tipo=document.getElementById('calcTipo').value;
-  const medio=document.getElementById('calcMedio').value;
-  const bidA=parseInt(document.getElementById('cmpCalcA').value);
-  const bidB=parseInt(document.getElementById('cmpCalcB').value);
-  const bA=brands.find(b=>b.id===bidA),bB=brands.find(b=>b.id===bidB);
-  const pctA=getArancel(bidA,medio,tipo),pctB=getArancel(bidB,medio,tipo);
-  if(pctA===null||pctB===null){
+  const monto = parseFloat(document.getElementById('calcMonto').value) || 50000;
+  const tipo  = document.getElementById('calcTipo').value || 'debito_qr';
+  const medio = document.getElementById('calcMedio').value || 'qr';
+  const bidA  = parseInt(document.getElementById('cmpCalcA').value);
+  const bidB  = parseInt(document.getElementById('cmpCalcB').value);
+  const bA = brands.find(b=>b.id===bidA), bB = brands.find(b=>b.id===bidB);
+
+  // Get selected plazo for each, or fallback to best
+  const selA = document.getElementById('cmpPlazoA');
+  const selB = document.getElementById('cmpPlazoB');
+  
+  let pctA, plazoLblA, pctB, plazoLblB;
+
+  // Agrupador A
+  if(selA.style.display !== 'none' && selA.value) {
+    pctA = parseFloat(selA.value);
+    plazoLblA = selA.options[selA.selectedIndex].text.split('·')[0].trim();
+  } else {
+    pctA = getArancel(bidA, medio, tipo);
+    const rows = getCmpPlazos(bidA, medio, tipo);
+    plazoLblA = rows.length ? rows.find(r=>r.val===pctA)?.plazo || 'Mejor plazo' : '—';
+  }
+
+  // Agrupador B
+  if(selB.style.display !== 'none' && selB.value) {
+    pctB = parseFloat(selB.value);
+    plazoLblB = selB.options[selB.selectedIndex].text.split('·')[0].trim();
+  } else {
+    pctB = getArancel(bidB, medio, tipo);
+    const rows = getCmpPlazos(bidB, medio, tipo);
+    plazoLblB = rows.length ? rows.find(r=>r.val===pctB)?.plazo || 'Mejor plazo' : '—';
+  }
+
+  if(pctA===null || pctB===null){
     document.getElementById('cmpCalcGrid').innerHTML=`<div class="nd-lbl" style="grid-column:1/-1">Uno de los agrupadores no tiene datos para este tipo de cobro y medio.</div>`;
     return;
   }
-  const costoA=monto*pctA/100,costoB=monto*pctB/100;
-  const aWins=costoA<=costoB;
-  const diff=Math.abs(costoA-costoB);
-  const cardA=`<div class="cmp-calc-card ${aWins?'winner':'loser'}">
+
+  const costoA = monto * pctA / 100;
+  const costoB = monto * pctB / 100;
+  const aWins  = costoA <= costoB;
+  const diff   = Math.abs(costoA - costoB);
+
+  const cardA = `<div class="cmp-calc-card ${aWins?'winner':'loser'}">
     <div class="cmp-brand-row">${logoImg(bidA,16)}<span>${bA.name}</span></div>
     <div class="cmp-detail">
+      <div class="cmp-detail-row"><span class="dlbl">Plazo</span><span class="dval" style="color:var(--accent)">${plazoLblA}</span></div>
       <div class="cmp-detail-row"><span class="dlbl">Arancel</span><span class="dval">${pctA.toFixed(2)}%</span></div>
       <div class="cmp-detail-row"><span class="dlbl">Costo</span><span class="dval ${aWins?'win':'lose'}">$${costoA.toLocaleString('es-AR',{minimumFractionDigits:2})}</span></div>
     </div>
-    ${aWins?`<div class="cmp-saving">Ahorrás $${diff.toLocaleString('es-AR',{minimumFractionDigits:2})}</div>`:''}
+    ${aWins?`<div class="cmp-saving">✓ Menor costo · ahorrás $${diff.toLocaleString('es-AR',{minimumFractionDigits:2})}</div>`:''}
   </div>`;
-  const cardB=`<div class="cmp-calc-card ${!aWins?'winner':'loser'}">
+
+  const cardB = `<div class="cmp-calc-card ${!aWins?'winner':'loser'}">
     <div class="cmp-brand-row">${logoImg(bidB,16)}<span>${bB.name}</span></div>
     <div class="cmp-detail">
+      <div class="cmp-detail-row"><span class="dlbl">Plazo</span><span class="dval" style="color:var(--accent)">${plazoLblB}</span></div>
       <div class="cmp-detail-row"><span class="dlbl">Arancel</span><span class="dval">${pctB.toFixed(2)}%</span></div>
       <div class="cmp-detail-row"><span class="dlbl">Costo</span><span class="dval ${!aWins?'win':'lose'}">$${costoB.toLocaleString('es-AR',{minimumFractionDigits:2})}</span></div>
     </div>
-    ${!aWins?`<div class="cmp-saving">Ahorrás $${diff.toLocaleString('es-AR',{minimumFractionDigits:2})}</div>`:''}
+    ${!aWins?`<div class="cmp-saving">✓ Menor costo · ahorrás $${diff.toLocaleString('es-AR',{minimumFractionDigits:2})}</div>`:''}
   </div>`;
-  document.getElementById('cmpCalcGrid').innerHTML=cardA+cardB;
+
+  document.getElementById('cmpCalcGrid').innerHTML = cardA + cardB;
 }
 
 // ── HISTORIAL ─────────────────────────────────────────────────────
