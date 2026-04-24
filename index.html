@@ -407,7 +407,7 @@ document.getElementById('bezzaLogoImg').src = 'data:image/png;base64,' + LOGOS[6
 
 // ── SUPABASE ──────────────────────────────────────────────────────
 const SUPA_URL = 'https://czalskmvkmdqcatztzvk.supabase.co';
-const SUPA_KEY = 'sb_publishable_8TSk5DbTW0lVKPHwqOIDOA_Oj_ulqa5';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6YWxza212a21kcWNhdHp0enZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5MDg1NjQsImV4cCI6MjA5MjQ4NDU2NH0.n8klwvEkOCaZO8QwoD2WWVDDGiAXyBLLUfF0yu1Rv-Y';
 const SB = (table, params='') => fetch(`${SUPA_URL}/rest/v1/${table}?${params}`, {
   headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}
 }).then(r=>r.json());
