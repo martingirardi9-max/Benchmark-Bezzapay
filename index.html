@@ -265,8 +265,9 @@ body{font-family:var(--font-h);color:var(--text-1);}
 
 <div class="page-tabs">
   <button class="ptab active" data-tab="benchmark" onclick="switchTab(this)">Aranceles y tasas</button>
-  <button class="ptab" data-tab="calculadora" onclick="switchTab(this)">Calculadora</button>
-  <button class="ptab" data-tab="historial" onclick="switchTab(this)">Historial de cambios</button>
+  <button class="ptab" data-tab="calculadora" onclick="switchTab(this)">Calculadora de ventas</button>
+  <button class="ptab" data-tab="mensual" onclick="switchTab(this)">Calculadora mensual</button>
+  <button class="ptab" data-tab="historial" onclick="switchTab(this)">Historial de aranceles</button>
 </div>
 
 <div class="main">
@@ -342,11 +343,77 @@ body{font-family:var(--font-h);color:var(--text-1);}
   </div>
 </div>
 
+<!-- TAB CALCULADORA MENSUAL -->
+<div class="tab-content" id="tab-mensual">
+  <div class="calc-wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px;">
+      <div class="calc-title">Calculadora mensual de ahorro</div>
+      <button class="calc-btn secondary" onclick="borrarMensual()" style="font-size:11px;padding:5px 12px;white-space:nowrap;flex-shrink:0;">✕ Borrar</button>
+    </div>
+    <div class="calc-sub" style="margin-bottom:.75rem;">Estimá cuánto podés ahorrar por mes si cambiás de agrupador a Bezza Pay. Elegí tu situación actual y el plazo de acreditación que usás.</div>
+    <div style="background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.12);border-radius:8px;padding:.625rem 1rem;margin-bottom:1.25rem;font-family:var(--font-m);font-size:11px;color:var(--accent);">
+      ℹ Comparamos el arancel de tu agrupador actual contra Bezza Pay usando el mismo plazo de acreditación para que la comparación sea justa.
+    </div>
+    <div class="calc-grid">
+      <div class="calc-field">
+        <label>1 · Facturación mensual ($)</label>
+        <input class="calc-input" id="mensMonto" type="number" placeholder="500000" min="0">
+      </div>
+      <div class="calc-field">
+        <label>2 · Agrupador actual</label>
+        <select class="calc-input" id="mensAgrup" onchange="updateMensPlazos()"></select>
+      </div>
+      <div class="calc-field">
+        <label>3 · Medio de cobro</label>
+        <select class="calc-input" id="mensMedio" onchange="updateMensPlazos()">
+          <option value="qr">QR</option>
+          <option value="link">Link de pago</option>
+          <option value="pos">POS / Terminal</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>4 · Tipo de cobro</label>
+        <select class="calc-input" id="mensTipo" onchange="updateMensPlazos()">
+          <optgroup label="Débito">
+            <option value="debito_inm">Débito · Inmediato</option>
+            <option value="debito_mej">Débito · Mejor plazo</option>
+            <option value="debito_all">Débito · Todos los plazos</option>
+          </optgroup>
+          <optgroup label="Crédito">
+            <option value="credito_inm">Crédito · Inmediato</option>
+            <option value="credito_mej">Crédito · Mejor plazo</option>
+            <option value="credito_all">Crédito · Todos los plazos</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+    <!-- Plazo selectors -->
+    <div id="mensPlazoWrap" style="display:none;background:var(--bg-tab);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;">
+      <div style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:.75rem;">5 · Elegí el plazo a comparar</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="calc-field">
+          <label id="mensPlazoALabel">Plazo agrupador actual</label>
+          <select class="calc-input" id="mensPlazoA"></select>
+        </div>
+        <div class="calc-field">
+          <label>Plazo Bezza Pay</label>
+          <select class="calc-input" id="mensPlazoB"></select>
+        </div>
+      </div>
+    </div>
+    <button class="calc-btn" onclick="calcMensual()" style="width:100%;margin-bottom:.75rem;">Ver ahorro potencial →</button>
+    <div class="calc-disclaimer">⚠ Estimación basada en aranceles publicados. No incluye percepciones impositivas, retenciones ni otros impuestos. El ahorro real puede variar.</div>
+    <div id="mensResults" style="display:none;margin-top:1.5rem;">
+      <div id="mensResultsContent"></div>
+    </div>
+  </div>
+</div>
+
 <!-- TAB HISTORIAL -->
 <div class="tab-content" id="tab-historial">
   <div class="hist-wrap">
     <div class="hist-header">
-      <div class="hist-title">Historial de cambios</div>
+      <div class="hist-title">Historial de aranceles</div>
       <div class="hist-sub">Débito, crédito y QR · POS / Terminal</div>
     </div>
     <div id="histContent"><div class="hist-empty">Cargando historial...</div></div>
@@ -401,6 +468,9 @@ const D={
   D[id].link=JSON.parse(JSON.stringify(q)); delete D[id].link.saldo;
   D[id].pos=JSON.parse(JSON.stringify(q));  delete D[id].pos.saldo;
 });
+// Bezza Pay link: débito solo a 2 días (3.19%), crédito sin inmediato
+D[6].link.debito=[{p:'2 días',v:3.19}];
+D[6].link.credito=D[6].link.credito.filter(r=>r.p!=='Inmediato');
 
 const MEDIOS=[{k:'qr',l:'QR'},{k:'link',l:'Link de pago'},{k:'pos',l:'POS / Terminal'}];
 let selA=null,selB=null,cmpMode=false;
@@ -444,6 +514,7 @@ function switchTab(btn){
   document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
   if(btn.dataset.tab==='historial') loadHistorial();
   if(btn.dataset.tab==='calculadora') initCalcSelects();
+  if(btn.dataset.tab==='mensual') initMensualSelects();
 }
 
 // ── BRAND BUTTONS ─────────────────────────────────────────────────
@@ -597,9 +668,9 @@ function renderContent(){
 
 // ── CALCULATOR ────────────────────────────────────────────────────
 const TIPOS_BY_MEDIO={
-  qr:[{v:'saldo_qr',l:'QR · Saldo en cuenta'},{v:'debito',l:'Débito por QR'},{v:'credito_inm',l:'Crédito por QR · Inmediato'},{v:'credito_mej',l:'Crédito por QR · Mejor plazo'}],
-  link:[{v:'debito',l:'Débito por link de pago'},{v:'credito_inm',l:'Crédito por link · Inmediato'},{v:'credito_mej',l:'Crédito por link · Mejor plazo'}],
-  pos:[{v:'debito',l:'Débito por POS / Terminal'},{v:'credito_inm',l:'Crédito por POS · Inmediato'},{v:'credito_mej',l:'Crédito por POS · Mejor plazo'}],
+  qr:  [{v:'saldo_qr',l:'QR · Saldo en cuenta'},{v:'debito',l:'Débito'},{v:'credito_inm',l:'Crédito · Inmediato'},{v:'credito_mej',l:'Crédito · Mejor plazo'}],
+  link:[{v:'debito',l:'Débito'},{v:'credito_inm',l:'Crédito · Inmediato'},{v:'credito_mej',l:'Crédito · Mejor plazo'}],
+  pos: [{v:'debito',l:'Débito'},{v:'credito_inm',l:'Crédito · Inmediato'},{v:'credito_mej',l:'Crédito · Mejor plazo'}],
 };
 
 function updateCalcTipos(){
@@ -613,9 +684,10 @@ function updateCalcTipos(){
 function getVal(bid,medio,tipo){
   const d=D[bid]&&D[bid][medio];if(!d)return null;
   if(tipo==='saldo_qr'){const r=d.saldo&&d.saldo[0];return r?r.v:null;}
-  if(tipo==='debito'){const rs=(d.debito||[]).filter(r=>r.v!==null);return rs.length?Math.min(...rs.map(r=>r.v)):null;}
+  if(tipo==='debito'||tipo==='debito_mej'||tipo==='debito_all'){const rs=(d.debito||[]).filter(r=>r.v!==null);return rs.length?Math.min(...rs.map(r=>r.v)):null;}
+  if(tipo==='debito_inm'){const r=(d.debito||[]).find(r=>r.p.toLowerCase().includes('inmediato')&&r.v!==null);return r?r.v:null;}
   if(tipo==='credito_inm'){const r=(d.credito||[]).find(r=>r.p.toLowerCase().includes('inmediato')&&r.v!==null);return r?r.v:null;}
-  if(tipo==='credito_mej'){const rs=(d.credito||[]).filter(r=>r.v!==null);return rs.length?Math.min(...rs.map(r=>r.v)):null;}
+  if(tipo==='credito_mej'||tipo==='credito_all'){const rs=(d.credito||[]).filter(r=>r.v!==null);return rs.length?Math.min(...rs.map(r=>r.v)):null;}
   return null;
 }
 
@@ -628,9 +700,12 @@ function calcular(){
   const mn=results[0]?.costo,mx=results[results.length-1]?.costo;
   const tipoLbl=(TIPOS_BY_MEDIO[medio]||[]).find(t=>t.v===tipo)?.l||tipo;
   document.getElementById('calcResultsTitle').textContent=`Cuánto vas a pagar de arancel · $${monto.toLocaleString('es-AR')} · ${tipoLbl}`;
-  document.getElementById('calcResultGrid').innerHTML=results.map(r=>`
+  document.getElementById('calcResultGrid').innerHTML=results.map((r,idx)=>`
     <div class="crc ${r.costo===mn?'best':r.costo===mx&&results.length>1?'worst':''}">
-      <div class="rb">${li(r.b.id,14)}<span>${r.b.name}</span></div>
+      <div class="rb">
+        <span style="font-family:var(--font-m);font-size:10px;font-weight:600;color:${idx===0?'var(--green)':r.costo===mx&&results.length>1?'var(--red)':'var(--text-3)'};margin-right:2px;">${idx+1}</span>
+        ${li(r.b.id,14)}<span>${r.b.name}</span>
+      </div>
       <div class="rv">$${r.costo.toLocaleString('es-AR',{minimumFractionDigits:2})}</div>
       <div class="rp">${r.pct.toFixed(2)}% sobre el monto</div>
       ${r.costo===mn?'<span class="tag-best">✓ Menor costo</span>':''}
@@ -696,6 +771,141 @@ function calcularComparativa(){
 }
 
 // ── HISTORIAL ─────────────────────────────────────────────────────
+function getMensRows(bid, medio, tipo){
+  const d=D[bid]&&D[bid][medio]; if(!d) return [];
+  if(tipo==='debito_inm') return (d.debito||[]).filter(r=>r.p.toLowerCase().includes('inmediato')&&r.v!==null);
+  if(tipo==='debito_mej'||tipo==='debito_all') return (d.debito||[]).filter(r=>r.v!==null);
+  if(tipo==='credito_inm') return (d.credito||[]).filter(r=>r.p.toLowerCase().includes('inmediato')&&r.v!==null);
+  if(tipo==='credito_mej'||tipo==='credito_all') return (d.credito||[]).filter(r=>r.v!==null);
+  if(tipo==='saldo_qr') return (d.saldo||[]).filter(r=>r.v!==null);
+  return [];
+}
+
+function updateMensPlazos(){
+  const agrupId = parseInt(document.getElementById('mensAgrup').value);
+  const medio   = document.getElementById('mensMedio').value;
+  const tipo    = document.getElementById('mensTipo').value;
+  const wrap    = document.getElementById('mensPlazoWrap');
+
+  if(isNaN(agrupId)){wrap.style.display='none';return;}
+
+  // Only show plazo selector for _all tipos
+  const isAll = tipo.endsWith('_all');
+  if(!isAll){wrap.style.display='none';return;}
+
+  const rowsA = getMensRows(agrupId, medio, tipo);
+  const rowsB = getMensRows(6, medio, tipo);
+
+  if(!rowsA.length && !rowsB.length){wrap.style.display='none';return;}
+
+  const selA = document.getElementById('mensPlazoA');
+  const selB = document.getElementById('mensPlazoB');
+  const bName = brands.find(b=>b.id===agrupId)?.name||'Agrupador';
+
+  document.getElementById('mensPlazoALabel').textContent = `Plazo · ${bName}`;
+
+  selA.innerHTML = rowsA.length
+    ? rowsA.map(r=>`<option value="${r.v}">${r.p} · ${r.v.toFixed(2)}%</option>`).join('')
+    : '<option value="">Sin datos</option>';
+
+  selB.innerHTML = rowsB.length
+    ? rowsB.map(r=>`<option value="${r.v}">${r.p} · ${r.v.toFixed(2)}%</option>`).join('')
+    : '<option value="">Sin datos</option>';
+
+  wrap.style.display = 'block';
+}
+
+function initMensualSelects(){
+  const opts = brands
+    .filter(b=>b.id!==6)
+    .map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+  const sel = document.getElementById('mensAgrup');
+  if(sel){
+    sel.innerHTML = opts; // no empty option - first brand selected by default
+    updateMensPlazos();   // trigger plazo selectors immediately
+  }
+}
+
+function borrarMensual(){
+  document.getElementById('mensMonto').value='';
+  document.getElementById('mensMedio').value='qr';
+  document.getElementById('mensTipo').value='debito';
+  document.getElementById('mensResults').style.display='none';
+  initMensualSelects();
+}
+
+function calcMensual(){
+  const monto   = parseFloat(document.getElementById('mensMonto').value);
+  const agrupId = parseInt(document.getElementById('mensAgrup').value);
+  const medio   = document.getElementById('mensMedio').value;
+  const tipo    = document.getElementById('mensTipo').value;
+
+  if(!monto||monto<=0){alert('Ingresá la facturación mensual');return;}
+  if(isNaN(agrupId)){alert('Elegí un agrupador');return;}
+
+  const bezzaId    = 6;
+  const agrupActual = brands.find(b=>b.id===agrupId);
+
+  const isAll = tipo.endsWith('_all');
+  const selA = document.getElementById('mensPlazoA');
+  const selB = document.getElementById('mensPlazoB');
+  const pctActual = isAll&&selA&&selA.value ? parseFloat(selA.value) : getVal(agrupId,medio,tipo);
+  const pctBezza  = isAll&&selB&&selB.value ? parseFloat(selB.value) : getVal(bezzaId,medio,tipo);
+  const plazoA = isAll&&selA&&selA.value ? selA.options[selA.selectedIndex]?.text.split('·')[0].trim() : tipo.includes('inm')?'Inmediato':'Mejor plazo';
+  const plazoB = isAll&&selB&&selB.value ? selB.options[selB.selectedIndex]?.text.split('·')[0].trim() : tipo.includes('inm')?'Inmediato':'Mejor plazo';
+
+  if(pctActual===null||pctBezza===null||isNaN(pctActual)||isNaN(pctBezza)){
+    document.getElementById('mensResultsContent').innerHTML='<div class="nd-lbl">No hay datos para esta combinación. Probá con otro medio o tipo de cobro.</div>';
+    document.getElementById('mensResults').style.display='block';
+    return;
+  }
+
+  const costoActual = monto * pctActual / 100;
+  const costoBezza  = monto * pctBezza  / 100;
+  const plazoLblA = plazoA||'—';
+  const plazoLblB = plazoB||'—';
+  const ahorro      = costoActual - costoBezza;
+  const ahorroAnual = ahorro * 12;
+  const bezzaWins   = ahorro > 0;
+
+  document.getElementById('mensResultsContent').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem;">
+      <div class="cmp-card ${!bezzaWins?'winner':'loser'}">
+        <div class="cmp-brand">${li(agrupId,16)}<span>${agrupActual.name}</span></div>
+        <div class="cmp-rows">
+          <div class="cmp-row-item"><span class="dl">Arancel</span><span class="dv">${pctActual.toFixed(2)}%</span></div>
+          <div class="cmp-row-item"><span class="dl">Costo mensual</span><span class="dv ${!bezzaWins?'win':'lose'}">$${costoActual.toLocaleString('es-AR',{minimumFractionDigits:2})}</span></div>
+          <div class="cmp-row-item"><span class="dl">Costo anual</span><span class="dv" style="color:var(--text-2)">$${(costoActual*12).toLocaleString('es-AR',{minimumFractionDigits:2})}</span></div>
+        </div>
+      </div>
+      <div class="cmp-card ${bezzaWins?'winner':'loser'}">
+        <div class="cmp-brand">${li(bezzaId,16)}<span>Bezza Pay</span></div>
+        <div class="cmp-rows">
+          <div class="cmp-row-item"><span class="dl">Arancel</span><span class="dv">${pctBezza.toFixed(2)}%</span></div>
+          <div class="cmp-row-item"><span class="dl">Costo mensual</span><span class="dv ${bezzaWins?'win':'lose'}">$${costoBezza.toLocaleString('es-AR',{minimumFractionDigits:2})}</span></div>
+          <div class="cmp-row-item"><span class="dl">Costo anual</span><span class="dv" style="color:var(--text-2)">$${(costoBezza*12).toLocaleString('es-AR',{minimumFractionDigits:2})}</span></div>
+        </div>
+        ${bezzaWins?'<div class="cmp-saving">✓ Opción más económica</div>':''}
+      </div>
+    </div>
+    ${bezzaWins ? `
+    <div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:10px;padding:1.25rem;text-align:center;">
+      <div style="font-family:var(--font-m);font-size:11px;color:var(--green);margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;">Ahorro potencial con Bezza Pay</div>
+      <div style="font-family:var(--font-m);font-size:28px;font-weight:500;color:var(--green);">$${ahorro.toLocaleString('es-AR',{minimumFractionDigits:2})}<span style="font-size:14px;"> / mes</span></div>
+      <div style="font-family:var(--font-m);font-size:14px;color:var(--green);opacity:.8;margin-top:4px;">$${ahorroAnual.toLocaleString('es-AR',{minimumFractionDigits:2})} por año</div>
+      <div style="font-family:var(--font-m);font-size:10px;color:var(--text-3);margin-top:8px;">Sobre $${monto.toLocaleString('es-AR')} de facturación mensual · ${medio.toUpperCase()} · ${tipo==='debito'?'Débito':tipo==='credito_inm'?'Crédito inmediato':'Crédito mejor plazo'}</div>
+    </div>` : `
+    <div style="background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:1.25rem;text-align:center;">
+      <div style="font-family:var(--font-m);font-size:13px;color:var(--red);">Para este medio y forma de pago, ${agrupActual.name} tiene mejor arancel.</div>
+      <div style="font-family:var(--font-m);font-size:11px;color:var(--text-3);margin-top:6px;">Probá con otro medio o forma de pago para ver si hay ahorro posible.</div>
+    </div>`}
+    <div style="font-family:var(--font-m);font-size:10px;color:var(--text-3);margin-top:.75rem;padding:.5rem .75rem;border-radius:6px;background:rgba(128,128,128,.05);border:1px solid var(--border);">
+      ⚠ Estimación basada en aranceles publicados. No incluye percepciones impositivas ni retenciones. El ahorro real puede variar.
+    </div>`;
+
+  document.getElementById('mensResults').style.display='block';
+}
+
 async function loadHistorial(){
   const el=document.getElementById('histContent');
   try{
