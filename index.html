@@ -195,6 +195,9 @@ select.calc-input{cursor:pointer;}
 .calc-result-card .rc-brand span{font-size:12px;font-weight:500;color:var(--text-2);}
 .calc-result-card .rc-costo{font-family:var(--font-m);font-size:20px;font-weight:500;color:var(--text-1);}
 .calc-result-card.best-result .rc-costo{color:var(--green);}
+.calc-result-card.worst-result{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.04);}
+.calc-result-card.worst-result .rc-costo{color:var(--red);}
+.rc-worst-tag{font-family:var(--font-m);font-size:9px;padding:1px 7px;border-radius:3px;background:var(--red-bg);color:var(--red);border:1px solid rgba(248,113,113,.2);margin-top:5px;display:inline-block;}
 .calc-result-card .rc-pct{font-family:var(--font-m);font-size:11px;color:var(--text-3);margin-top:2px;}
 .calc-result-card .rc-best-tag{font-family:var(--font-m);font-size:9px;padding:1px 7px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid rgba(62,207,142,.2);margin-top:5px;display:inline-block;}
 
@@ -718,15 +721,17 @@ function calcular(){
   }).filter(Boolean).sort((a,b)=>a.costo-b.costo);
 
   const minCosto=results[0]?.costo;
+  const maxCosto=results[results.length-1]?.costo;
   const tipoLbl={'debito_qr':'Débito · QR','debito_pos':'Débito · POS','credito_inmediato':'Crédito · Inmediato','credito_mejor':'Crédito · Mejor plazo','saldo_qr':'QR saldo en cuenta'}[tipo];
 
   document.getElementById('calcResultsTitle').textContent=`Cuánto vas a pagar de arancel por $${monto.toLocaleString('es-AR')} · ${tipoLbl}`;
   document.getElementById('calcResultGrid').innerHTML=results.map(r=>`
-    <div class="calc-result-card ${r.costo===minCosto?'best-result':''}">
+    <div class="calc-result-card ${r.costo===minCosto?'best-result':r.costo===maxCosto&&results.length>1?'worst-result':''}">
       <div class="rc-brand">${logoImg(r.brand.id,14)}<span>${r.brand.name}</span></div>
       <div class="rc-costo">$${r.costo.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
       <div class="rc-pct">${r.pct.toFixed(2)}% sobre el monto</div>
       ${r.costo===minCosto?'<div class="rc-best-tag">✓ Menor costo</div>':''}
+      ${r.costo===maxCosto&&results.length>1?'<div class="rc-worst-tag">↑ Más caro</div>':''}
     </div>`).join('');
   document.getElementById('calcResults').classList.add('visible');
   document.getElementById('cmpCalcWrap').classList.add('visible');
